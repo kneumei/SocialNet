@@ -1,5 +1,14 @@
-module.exports = function(config, mongoose, nodemailer) {
+module.exports = function(config, mongoose, Status, nodemailer) {
   var crypto = require('crypto');
+
+  var Status = new mongoose.Schema({
+    name:{
+      first: {type: String},
+      last:  {type: String}, 
+    },
+    status:  {type: String},
+
+  });
 
   var AccountSchema = new mongoose.Schema({
     email:     { type: String, unique: true },
@@ -14,7 +23,9 @@ module.exports = function(config, mongoose, nodemailer) {
       year:    { type: Number }
     },
     photoUrl:  { type: String },
-    biography: { type: String }
+    biography: { type: String },
+    status:    [Status], //my own status
+    activity:  [Status] //all status updates
   });
 
   var Account = mongoose.model('Account', AccountSchema);
@@ -52,10 +63,8 @@ module.exports = function(config, mongoose, nodemailer) {
           text: 'Click here to reset your password: ' + resetPasswordUrl
         }, function forgotPasswordResult(err) {
           if (err) {
-            console.log(err,"fail");
             callback(false);
           } else {
-            console.log("win");
             callback(true);
           }
         });
@@ -67,7 +76,13 @@ module.exports = function(config, mongoose, nodemailer) {
     var shaSum = crypto.createHash('sha256');
     shaSum.update(password);
     Account.findOne({email:email,password:shaSum.digest('hex')},function(err,doc){
-      callback(null!=doc);
+      callback(doc);
+    });
+  };
+
+  var findById = function(accountId, callback){
+    Account.findOne({_id:accountId}, function(err, doc){
+      callback(doc);
     });
   };
 
@@ -89,6 +104,7 @@ module.exports = function(config, mongoose, nodemailer) {
   }
 
   return {
+    findById: findById,
     register: register,
     forgotPassword: forgotPassword,
     changePassword: changePassword,
