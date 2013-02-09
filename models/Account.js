@@ -10,6 +10,16 @@ module.exports = function(config, mongoose, Status, nodemailer) {
 
   });
 
+  var Contact = new mongoose.Schema({
+    name: {
+      first:   { type: String },
+      last:    { type: String }
+    },
+    accountId: { type: mongoose.Schema.ObjectId },
+    added:     { type: Date },     // When the contact was added
+    updated:   { type: Date }      // When the contact last updated
+  });
+
   var AccountSchema = new mongoose.Schema({
     email:     { type: String, unique: true },
     password:  { type: String },
@@ -80,10 +90,47 @@ module.exports = function(config, mongoose, Status, nodemailer) {
     });
   };
 
+  var findByString = function(searchStr, callback) {
+    var searchRegex = new RegExp(searchStr, 'i');
+    Account.find({
+      $or: [
+        { 'name.full': { $regex: searchRegex } },
+        { email:       { $regex: searchRegex } }
+      ]
+    }, callback);
+  };
+
   var findById = function(accountId, callback){
     Account.findOne({_id:accountId}, function(err, doc){
       callback(doc);
     });
+  };
+
+  var addContact = function(account, addcontact) {
+    contact = {
+      name: addcontact.name,
+      accountId: addcontact._id,
+      added: new Date(),
+      updated: new Date()
+    };
+    account.contacts.push(contact);
+
+    account.save(function (err) {
+      if (err) {
+        console.log('Error saving account: ' + err);
+      }
+    });
+  };
+
+  var removeContact = function(account, contactId) {
+    if ( null == account.contacts ) return;
+
+    account.contacts.forEach(function(contact) {
+      if ( contact.accountId == contactId ) {
+        account.contacts.remove(contact);
+      }
+    });
+    account.save();
   };
 
   var register = function(email, password, firstName, lastName) {
