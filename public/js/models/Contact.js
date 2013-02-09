@@ -1,7 +1,6 @@
-define(function(require){
-	var Contact = Backbone.Model.extend({
+define(function(require) {
+  var Contact = Backbone.Model.extend({
+  });
 
-	});
-
-	return Contact;
+  return Contact;
 });

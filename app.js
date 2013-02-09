@@ -1,8 +1,8 @@
-var express = require("express");
-var app = express();
-var nodemailer = require('nodemailer');
+var express     = require("express");
+var app         = express();
+var nodemailer  = require('nodemailer');
 var MemoryStore = require('connect').session.MemoryStore;
-var dbPath = 'mongodb://localhost/nodebackbone'
+var dbPath      = 'mongodb://localhost/nodebackbone';
 
 // Import the data layer
 var mongoose = require('mongoose');
@@ -10,8 +10,8 @@ var config = {
   mail: require('./config/mail')
 };
 
-// Import the accounts
-var models ={ 
+// Import the models
+var models = {
   Account: require('./models/Account')(config, mongoose, nodemailer)
 };
 
@@ -21,9 +21,12 @@ app.configure(function(){
   app.use(express.limit('1mb'));
   app.use(express.bodyParser());
   app.use(express.cookieParser());
-  app.use(express.session({secret: "SocialNet secret key", store: new MemoryStore()}));
-  mongoose.connect(dbPath, function onMongooseError(err){
-    if(err) throw err;
+  app.use(express.session({
+    secret: "SocialNet secret key",
+    store: new MemoryStore()
+  }));
+  mongoose.connect(dbPath, function onMongooseError(err) {
+    if (err) throw err;
   });
 });
 
@@ -50,12 +53,11 @@ app.post('/login', function(req, res) {
     console.log('login was successful');
     req.session.loggedIn = true;
     req.session.accountId = account._id;
-	res.send(200);
+    res.send(200);
   });
 });
 
 app.post('/register', function(req, res) {
-  console.log("register");
   var firstName = req.param('firstName', '');
   var lastName = req.param('lastName', '');
   var email = req.param('email', null);
@@ -72,7 +74,6 @@ app.post('/register', function(req, res) {
 });
 
 app.get('/account/authenticated', function(req, res) {
-  console.log("authenticated");
   if ( req.session.loggedIn ) {
     res.send(200);
   } else {
@@ -89,86 +90,39 @@ app.get('/accounts/:id/contacts', function(req, res) {
   });
 });
 
-app.post('/forgotpassword', function(req, res) {
-  console.log("forgotpassword");
-  var hostname = req.headers.host;
-  var resetPasswordUrl = 'http://' + hostname + '/resetPassword';
-  var email = req.param('email', null);
-  if ( null == email || email.length < 1 ) {
-    res.send(400);
-    return;
-  }
-
-  console.log("sending email");
-  models.Account.forgotPassword(email, resetPasswordUrl, function(success){
-    if (success) {
-      console.log("sending password successful");
-      res.send(200);
-    } else {
-      console.log("sending 404");
-      // Username or password not found
-      res.send(404);
-    }
+app.get('/accounts/:id/activity', function(req, res) {
+  var accountId = req.params.id == 'me'
+                     ? req.session.accountId
+                     : req.params.id;
+  models.Account.findById(accountId, function(account) {
+    res.send(account.activity);
   });
 });
 
-app.post('/contacts/find', function(req, res) {
-  var searchStr = req.param('searchStr', null);
-  if ( null == searchStr ) {
-    res.send(400);
-    return;
-  }
-
-  models.Account.findByString(searchStr, function onSearchDone(err,accounts) {
-    if (err || accounts.length == 0) {
-      res.send(404);
-    } else {
-      res.send(accounts);
-    }
-  });
-});
-
-app.get('/resetPassword', function(req, res) {
-  console.log("resetPassword");
-  var accountId = req.param('account', null);
-  res.render('resetPassword.jade', {locals:{accountId:accountId}});
-});
-
-app.post('/resetPassword', function(req, res) {
-  var accountId = req.param('accountId', null);
-  var password = req.param('password', null);
-  if ( null != accountId && null != password ) {
-    models.Account.changePassword(accountId, password);
-  }
-  res.render('resetPasswordSuccess.jade');
-});
-
-app.get('/accounts/:id', function(req, res){
-  var accountId = req.params.id =='me'? req.session.accountId : req.params.id;
-  models.Account.findById(accountId, function(account){
-    res.send(account);
-  });
-});
-
-app.get('/accounts/:id/status', function(req, res){
-  var accountId = req.params.id == 'me'? req.session.accountId:req.params.id;
-  models.Account.findById(accountId, function(account){
+app.get('/accounts/:id/status', function(req, res) {
+  var accountId = req.params.id == 'me'
+                     ? req.session.accountId
+                     : req.params.id;
+  models.Account.findById(accountId, function(account) {
     res.send(account.status);
   });
 });
-  
-app.post('/accounts/:id/status', function(req,res){
-  var accountId = req.params.id == 'me'? req.session.accountId:req.params.id;
-  models.Account.findById(accountId, function(account){
-    status={
+
+app.post('/accounts/:id/status', function(req, res) {
+  var accountId = req.params.id == 'me'
+                     ? req.session.accountId
+                     : req.params.id;
+  models.Account.findById(accountId, function(account) {
+    status = {
       name: account.name,
-      status: req.param('status','')
-    }
+      status: req.param('status', '')
+    };
     account.status.push(status);
 
+    // Push the status to all friends
     account.activity.push(status);
-    account.save(function(err){
-      if(err){
+    account.save(function (err) {
+      if (err) {
         console.log('Error saving account: ' + err);
       }
     });
@@ -233,11 +187,66 @@ app.post('/accounts/:id/contact', function(req,res) {
   res.send(200);
 });
 
-app.get('/accounts/:id/activity', function(req, res){
-  var accountId = req.params.id == 'me'? req.session.accountId:req.params.id;
-  models.Account.findById(accountId, function(account){
-    res.send(account.activity);
+app.get('/accounts/:id', function(req, res) {
+  var accountId = req.params.id == 'me'
+                     ? req.session.accountId
+                     : req.params.id;
+  models.Account.findById(accountId, function(account) {
+    if ( accountId == 'me' || models.Account.hasContact(account, req.session.accountId) ) {
+      account.isFriend = true;
+    }
+    res.send(account);
   });
 });
+
+app.post('/forgotpassword', function(req, res) {
+  var hostname = req.headers.host;
+  var resetPasswordUrl = 'http://' + hostname + '/resetPassword';
+  var email = req.param('email', null);
+  if ( null == email || email.length < 1 ) {
+    res.send(400);
+    return;
+  }
+
+  models.Account.forgotPassword(email, resetPasswordUrl, function(success){
+    if (success) {
+      res.send(200);
+    } else {
+      // Username or password not found
+      res.send(404);
+    }
+  });
+});
+
+app.post('/contacts/find', function(req, res) {
+  var searchStr = req.param('searchStr', null);
+  if ( null == searchStr ) {
+    res.send(400);
+    return;
+  }
+
+  models.Account.findByString(searchStr, function onSearchDone(err,accounts) {
+    if (err || accounts.length == 0) {
+      res.send(404);
+    } else {
+      res.send(accounts);
+    }
+  });
+});
+
+app.get('/resetPassword', function(req, res) {
+  var accountId = req.param('account', null);
+  res.render('resetPassword.jade', {locals:{accountId:accountId}});
+});
+
+app.post('/resetPassword', function(req, res) {
+  var accountId = req.param('accountId', null);
+  var password = req.param('password', null);
+  if ( null != accountId && null != password ) {
+    models.Account.changePassword(accountId, password);
+  }
+  res.render('resetPasswordSuccess.jade');
+});
+
 app.listen(8080);
-console.log("SocialNet listening on port 8080");
+console.log('Listening on port 8080');
